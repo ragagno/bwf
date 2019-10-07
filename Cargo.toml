@@ -1,0 +1,15 @@
+[package]
+name = "bwf"
+version = "0.1.0"
+description = "Backend Web Framework."
+repository = "https://gitlab.com/ragagno/bwf"
+
+authors = ["Ragagno <ragocraft@gmail.com>"]
+license = "MIT"
+
+edition = "2018"
+
+readme = "README.md"
+
+[dependencies]
+rul = { git = "https://gitlab.com/ragagno/rul" }
