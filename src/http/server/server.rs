@@ -13,7 +13,7 @@ use std::io::Write;
 
 use rul::interface::address::Enum as IPAddress;
 
-use crate::http::Result;
+use super::Result;
 
 use crate::http::Status;
 use crate::http::Method;

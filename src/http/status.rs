@@ -4,6 +4,7 @@ macro_rules! declare_status {
     ($({$enum_name: ident, $code: expr, $code_text: expr, $text: expr, $phrase: expr}),+) => {
         // HTTP status code as registered with the Internet Assigned Numbers Authority (https://www.iana.org).
         // See https://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml.
+        #[derive(PartialEq, Eq)]
         pub enum Status {
             $($enum_name,)+
         }
@@ -202,6 +203,14 @@ declare_status!(
 );
 
 impl fmt::Display for Status {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        return unsafe {
+            formatter.write_str(std::str::from_utf8_unchecked(self.get_phrase()))
+        };
+    }
+}
+
+impl fmt::Debug for Status {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         return unsafe {
             formatter.write_str(std::str::from_utf8_unchecked(self.get_phrase()))

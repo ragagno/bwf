@@ -25,8 +25,24 @@ impl Request {
         return &self.method;
     }
 
-    pub fn set_target(&mut self, path: &str) {
-        self.target = String::from(path);
+    pub fn set_target(&mut self, path: &[u8]) -> super::Result<()> {
+        if path.len() == 0 {
+            return Err(super::Error::InvalidPath);
+        }
+
+        if path[0] != b'/' {
+            return Err(super::Error::InvalidPath);
+        }
+
+        self.target = if path.len() == 1 {
+            String::from("/")
+        } else if path[path.len() - 1] == b'/' {
+            String::from(unsafe { std::str::from_utf8_unchecked(&path[..path.len() - 1]) })
+        } else {
+            String::from(unsafe { std::str::from_utf8_unchecked(&path) })
+        };
+
+        return Ok(());
     }
 
     pub fn get_target(&self) -> &str {

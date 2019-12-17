@@ -2,6 +2,7 @@ use std::fmt;
 
 macro_rules! declare_methods {
     ($({$enum_name:ident, $text:expr}),+) => {
+        #[derive(PartialEq, Eq)]
         pub enum Method {
             $($enum_name,)+
         }
@@ -38,6 +39,14 @@ declare_methods!(
 );
 
 impl fmt::Display for Method {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        return unsafe {
+            formatter.write_str(std::str::from_utf8_unchecked(self.get_text()))
+        };
+    }
+}
+
+impl fmt::Debug for Method {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         return unsafe {
             formatter.write_str(std::str::from_utf8_unchecked(self.get_text()))
