@@ -4,12 +4,22 @@ use std::io;
 use super::Result;
 use super::Error;
 
+use super::super::{MIN_LENGTH_METHOD, LENGTH_SPACE, MIN_LENGTH_TARGET, LENGTH_PROTOCOL, LENGTH_EOL};
+
 use crate::http::Method;
 
-const MAX_HEADER_LENGTH: usize = 4096usize;
+const MAX_LENGTH_HEADER: usize = 4096usize;
+
+const MIN_LENGTH_REQUEST_LINE_FULL: usize = MIN_LENGTH_METHOD + LENGTH_SPACE + MIN_LENGTH_TARGET + LENGTH_SPACE + LENGTH_PROTOCOL + LENGTH_EOL + LENGTH_EOL;
+// "GET / HTTP/1.1\r\n\r\n"
+const MIN_LENGTH_REQUEST_LINE_SLICED_1: usize = MIN_LENGTH_TARGET + LENGTH_SPACE + LENGTH_PROTOCOL + LENGTH_EOL + LENGTH_EOL;
+// "/ HTTP/1.1\r\n\r\n"
+const MIN_LENGTH_REQUEST_LINE_SLICED_2: usize = LENGTH_PROTOCOL + LENGTH_EOL + LENGTH_EOL;
+// "HTTP/1.1\r\n\r\n"
+const MIN_LENGTH_REQUEST_LINE_SLICED_3: usize = LENGTH_EOL; // "\r\n"
 
 pub struct Request {
-    buffer: [u8; MAX_HEADER_LENGTH],
+    buffer: [u8; MAX_LENGTH_HEADER],
     buffer_length: usize,
     buffer_finger: usize,
 
@@ -19,9 +29,9 @@ pub struct Request {
 }
 
 impl Request {
-    fn new() -> Self {
-        return Self {
-            buffer: [0u8; MAX_HEADER_LENGTH],
+    pub fn parse(reader: &mut dyn io::Read) -> Result<Self> {
+        let mut request = Self {
+            buffer: [0u8; MAX_LENGTH_HEADER],
             buffer_length: 0usize,
             buffer_finger: 0usize,
 
@@ -29,13 +39,10 @@ impl Request {
 
             target: String::from("/"),
         };
-    }
 
-    pub fn parse(reader: &mut dyn io::Read) -> Result<Self> {
-        let mut request = Self::new();
         request.buffer_length = reader.read(&mut request.buffer)?;
 
-        if request.buffer_finger + 3usize + 1usize >= request.buffer_length {
+        if MIN_LENGTH_REQUEST_LINE_FULL > request.buffer_length {
             return Err(Error::BadRequest);
         }
 
@@ -50,36 +57,55 @@ impl Request {
                 None => return Err(Error::BadRequest),
             };
 
-            request.buffer_finger = space_index;
+            request.buffer_finger = space_index + LENGTH_SPACE;
         }
 
-        if request.buffer_finger + 1usize >= request.buffer_length {
+        if request.buffer_finger + MIN_LENGTH_REQUEST_LINE_SLICED_1 > request.buffer_length {
             return Err(Error::BadRequest);
         }
-
-        request.buffer_finger += 1usize;
 
         {
-            let space_index = request.buffer_finger + request.buffer[request.buffer_finger..].iter().position(|&byte| byte == b' ').unwrap();
-
-            request.target = if request.buffer_finger + 1 == space_index {
-                String::from("/")
-            } else if request.buffer[space_index - 1] == b'/' {
-                String::from(std::str::from_utf8(&request.buffer[request.buffer_finger..space_index - 1])?)
-            } else {
-                String::from(std::str::from_utf8(&request.buffer[request.buffer_finger..space_index])?)
+            let space_index = request.buffer_finger + match request.buffer[request.buffer_finger..].iter().position(|&byte| byte == b' ') {
+                Some(index) => index,
+                None => return Err(Error::BadRequest),
             };
 
-            request.buffer_finger = space_index;
+            request.target = if request.buffer[request.buffer_finger] == b'/' {
+                if request.buffer_finger + 1usize == space_index {
+                    String::from("/")
+                } else if request.buffer[space_index - 1usize] == b'/' {
+                    String::from(std::str::from_utf8(&request.buffer[request.buffer_finger..space_index - 1usize])?)
+                } else {
+                    String::from(std::str::from_utf8(&request.buffer[request.buffer_finger..space_index])?)
+                }
+            } else {
+                return Err(Error::BadRequest);
+            };
+
+            request.buffer_finger = space_index + LENGTH_SPACE;
         }
 
-        request.buffer_finger += 1usize;
-
-        if request.buffer_finger + 8usize >= request.buffer_length {
+        if request.buffer_finger + MIN_LENGTH_REQUEST_LINE_SLICED_2 > request.buffer_length {
             return Err(Error::BadRequest);
         }
 
-        if !request.buffer[request.buffer_finger..].starts_with(b"HTTP/1.1") {
+        if !request.buffer[request.buffer_finger..].starts_with(b"HTTP/1.1\r\n") {
+            return Err(Error::BadRequest);
+        }
+
+        request.buffer_finger += LENGTH_PROTOCOL + LENGTH_EOL;
+
+        if request.buffer_finger + MIN_LENGTH_REQUEST_LINE_SLICED_3 > request.buffer_length {
+            return Err(Error::BadRequest);
+        }
+
+        if !request.buffer[request.buffer_finger..].starts_with(b"\r\n") {
+            return Err(Error::BadRequest);
+        }
+
+        request.buffer_finger += LENGTH_EOL;
+
+        if request.buffer_finger != request.buffer_length {
             return Err(Error::BadRequest);
         }
 
@@ -192,5 +218,19 @@ mod tests {
         }
     }
 
-    mod benchmarks {}
+    mod benchmarks {
+        use test::Bencher;
+
+        const REQUEST_LINE: &str = "HEAD /lorem/ipsum/dolor/sit/amet HTTP/1.1\r\n\r\n";
+
+        #[bench]
+        fn parse_reader(b: &mut Bencher) {
+            use super::Request;
+            use super::StringRead;
+
+            let mut reader = StringRead::new(REQUEST_LINE);
+
+            b.iter(|| test::black_box(Request::parse(&mut reader)));
+        }
+    }
 }

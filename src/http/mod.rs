@@ -4,6 +4,13 @@ pub mod status;
 pub mod server;
 pub mod client;
 
+const MIN_LENGTH_METHOD: usize = 3usize; // "GET", "PUT", ...
+const MIN_LENGTH_TARGET: usize = 1usize; // "/"
+
+const LENGTH_PROTOCOL: usize = 8usize; // "HTTP/1.1"
+const LENGTH_SPACE: usize = 1usize; // " "
+const LENGTH_EOL: usize = 2usize; // "\r\n"
+
 pub use self::method::Method;
 pub use self::status::Status;
 
