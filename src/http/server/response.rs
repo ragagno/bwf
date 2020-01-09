@@ -27,11 +27,3 @@ impl fmt::Display for Response {
         return formatter.write_fmt(format_args!("HTTP/1.1 {}\r\n\r\n", self.status));
     }
 }
-
-mod tests {
-    use super::*;
-
-    mod assertions {}
-
-    mod benchmarks {}
-}

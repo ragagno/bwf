@@ -3,15 +3,10 @@ use std::net::SocketAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddrV4;
 
-use std::net::Ipv6Addr;
-use std::net::SocketAddrV6;
-
 use std::net::TcpStream;
 use std::net::TcpListener;
 
 use std::io::Write;
-
-use rul::interface::address::Enum as IPAddress;
 
 use super::Result;
 
@@ -22,23 +17,20 @@ const DEFAULT_ADDRESS: u32 = 0x7F_00_00_01u32;
 const DEFAULT_PORT: u16 = 80u16;
 
 pub struct Server {
-    address: IPAddress,
+    address: u32,
     port: u16,
 }
 
 impl Server {
     pub fn new() -> Self {
         return Self {
-            address: IPAddress::Ipv4(DEFAULT_ADDRESS),
+            address: DEFAULT_ADDRESS,
             port: DEFAULT_PORT,
         };
     }
 
     pub fn start(&self) -> Result<()> {
-        let address: SocketAddr = match self.address {
-            IPAddress::Ipv4(address) => SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(address), self.port)),
-            IPAddress::Ipv6(address) => SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::from(address), self.port, 0u32, 0u32)),
-        };
+        let address: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::from(self.address), self.port));
 
         let listener = TcpListener::bind(address)?;
 
@@ -83,10 +75,20 @@ impl Server {
 
         return Ok(());
     }
+
+    pub fn set_port(&mut self, port: u16) {
+        self.port = port;
+    }
+
+    pub fn get_port(&mut self) -> u16 {
+        self.port
+    }
+
+    pub fn set_address(&mut self, address: u32) {
+        self.address = address;
+    }
+
+    pub fn get_address(&mut self) -> u32 {
+        self.address
+    }
 }
-
-rul_implement_address_get!(Server, address);
-rul_implement_address_set!(Server, address);
-
-rul_implement_port_get!(Server, port);
-rul_implement_port_set!(Server, port);
